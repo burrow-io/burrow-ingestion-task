@@ -106,6 +106,38 @@ def update_document_status(status):
     resp.raise_for_status()
 
 
+def get_s3_deletion_status():
+    log_info(
+        "Fetching S3 tags for deletion detection",
+        document_id=DOCUMENT_ID,
+        bucket=BUCKET_NAME,
+        key=S3_KEY,
+    )
+
+    s3_client = boto3.client("s3", region_name="us-east-1")
+    try:
+        response = s3_client.get_object_tagging(Bucket=BUCKET_NAME, Key=S3_KEY)
+        tags = {tag["Key"]: tag["Value"] for tag in response["TagSet"]}
+        deletion_status = tags.get("deletion_status", None)
+
+        log_info(
+            "S3 tags fetched successfully",
+            document_id=DOCUMENT_ID,
+            deletion_status=deletion_status,
+            all_tags=tags,
+        )
+
+        return deletion_status
+    except Exception:
+        log_exception(
+            "Failed to fetch S3 tags",
+            document_id=DOCUMENT_ID,
+            bucket=BUCKET_NAME,
+            key=S3_KEY,
+        )
+        return None
+
+
 def create_hybrid_chunker():
     log_info(
         "Creating HybridChunker",
@@ -144,7 +176,7 @@ def clean_node_metadata(nodes):
             if "prov" in first_item and first_item["prov"]:
                 clean_meta["page"] = first_item["prov"][0].get("page_no")
             if "label" in first_item:
-                clean_meta["content_type"] = first_item["label"]  
+                clean_meta["content_type"] = first_item["label"]
 
         clean_meta["chunk_index"] = idx
         clean_meta["total_chunks"] = len(nodes)
@@ -265,7 +297,7 @@ def main():
     hybrid_chunker = create_hybrid_chunker()
     node_parser = DoclingNodeParser(chunker=hybrid_chunker)
     nodes = node_parser.get_nodes_from_documents(docs)
-    nodes = clean_node_metadata(nodes)  
+    nodes = clean_node_metadata(nodes)
     log_info(
         "Parsed document into nodes",
         document_id=DOCUMENT_ID,
@@ -314,35 +346,34 @@ def main():
 
 
 def main_with_status():
-    is_delete = EVENT_TYPE == "Object Deleted"
+    if EVENT_TYPE == "Object Tags Added":
+        deletion_status = get_s3_deletion_status()
 
-    if is_delete:
+        if deletion_status != "deleting":
+            log_info(
+                "Non-deletion tag event, skipping",
+                document_id=DOCUMENT_ID,
+                deletion_status=deletion_status,
+            )
+            return
+
         log_info(
-            "Delete event received",
+            "Deletion event detected",
             document_id=DOCUMENT_ID,
-            event_type=EVENT_TYPE,
             bucket=BUCKET_NAME,
             key=S3_KEY,
         )
 
         try:
-            update_document_status("deleting")
-        except Exception:
-            log_exception(
-                "Failed to set status=deleting",
-                document_id=DOCUMENT_ID,
-            )
-
-        try:
             delete_embeddings_for_document()
             update_document_status("deleted")
             log_info(
-                "Delete flow completed successfully",
+                "Deletion completed successfully",
                 document_id=DOCUMENT_ID,
             )
         except Exception:
             log_exception(
-                "Delete flow failed",
+                "Deletion failed",
                 document_id=DOCUMENT_ID,
             )
             try:
@@ -356,7 +387,7 @@ def main_with_status():
 
     else:
         log_info(
-            "Create/ingestion event received",
+            "Ingestion event received",
             document_id=DOCUMENT_ID,
             event_type=EVENT_TYPE,
             bucket=BUCKET_NAME,
@@ -394,18 +425,18 @@ def main_with_status():
                     document_id=DOCUMENT_ID,
                 )
             raise
-        else:
-            try:
-                update_document_status("finished")
-                log_info(
-                    "Document marked as finished",
-                    document_id=DOCUMENT_ID,
-                )
-            except Exception:
-                log_exception(
-                    "Failed to set status=finished",
-                    document_id=DOCUMENT_ID,
-                )
+
+        try:
+            update_document_status("finished")
+            log_info(
+                "Document marked as finished",
+                document_id=DOCUMENT_ID,
+            )
+        except Exception:
+            log_exception(
+                "Failed to set status=finished",
+                document_id=DOCUMENT_ID,
+            )
 
 
 if __name__ == "__main__":
