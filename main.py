@@ -393,7 +393,6 @@ def main_with_status():
             bucket=BUCKET_NAME,
             key=S3_KEY,
         )
-
         try:
             update_document_status("running")
             log_info(
@@ -405,28 +404,8 @@ def main_with_status():
                 "Failed to set status=running",
                 document_id=DOCUMENT_ID,
             )
-
         try:
             main()
-        except Exception:
-            log_exception(
-                "Ingestion failed",
-                document_id=DOCUMENT_ID,
-            )
-            try:
-                update_document_status("failed")
-                log_info(
-                    "Document marked as failed",
-                    document_id=DOCUMENT_ID,
-                )
-            except Exception:
-                log_exception(
-                    "Failed to set status=failed",
-                    document_id=DOCUMENT_ID,
-                )
-            raise
-
-        try:
             update_document_status("finished")
             log_info(
                 "Document marked as finished",
@@ -434,9 +413,17 @@ def main_with_status():
             )
         except Exception:
             log_exception(
-                "Failed to set status=finished",
+                "Ingestion or status update failed",
                 document_id=DOCUMENT_ID,
             )
+            try:
+                update_document_status("failed")
+            except Exception:
+                log_exception(
+                    "Failed to set status=failed",
+                    document_id=DOCUMENT_ID,
+                )
+            raise
 
 
 if __name__ == "__main__":
