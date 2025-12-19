@@ -55,29 +55,6 @@ log_info(
 )
 
 
-def ensure_pgvector_extension():
-    log_info(
-        "Ensuring pgvector extension is installed",
-        document_id=DOCUMENT_ID,
-        db_host=DB_HOST,
-        db_name=DB_NAME,
-    )
-    conn = psycopg2.connect(
-        host=DB_HOST,
-        port=DB_PORT,
-        dbname=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        connect_timeout=60,
-    )
-    conn.autocommit = True
-    cur = conn.cursor()
-    cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
-    cur.close()
-    conn.close()
-    log_info("pgvector extension ready", document_id=DOCUMENT_ID)
-
-
 def update_document_status(status):
     url = f"{ALB_BASE_URL}/api/documents/{DOCUMENT_ID}"
     headers = {
@@ -269,8 +246,6 @@ def main():
         table_name=TABLE_NAME,
     )
 
-    ensure_pgvector_extension()
-
     s3 = boto3.client("s3", region_name="us-east-1")
     presigned_url = s3.generate_presigned_url(
         ClientMethod="get_object",
@@ -408,6 +383,11 @@ def main_with_status():
 
         try:
             main()
+            update_document_status("finished")
+            log_info(
+                "Document marked as finished",
+                document_id=DOCUMENT_ID,
+            )
         except Exception:
             log_exception(
                 "Ingestion failed",
@@ -425,18 +405,6 @@ def main_with_status():
                     document_id=DOCUMENT_ID,
                 )
             raise
-
-        try:
-            update_document_status("finished")
-            log_info(
-                "Document marked as finished",
-                document_id=DOCUMENT_ID,
-            )
-        except Exception:
-            log_exception(
-                "Failed to set status=finished",
-                document_id=DOCUMENT_ID,
-            )
 
 
 if __name__ == "__main__":
