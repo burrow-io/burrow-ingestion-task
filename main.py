@@ -417,3 +417,4 @@ if __name__ == "__main__":
         table_name=TABLE_NAME,
     )
     main_with_status()
+print("Completed")
