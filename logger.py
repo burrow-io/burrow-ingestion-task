@@ -1,7 +1,7 @@
 import logging
 import sys
 import json
-import datetime
+from datetime import datetime, timezone
 import traceback
 
 SERVICE_NAME = "ingestion-task"
@@ -17,8 +17,7 @@ logger.propagate = False
 
 def log_info(message, **fields):
     record = {
-        "timestamp": datetime.datetime.utcnow().isoformat(timespec="milliseconds")
-        + "Z",
+        "timestamp": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
         "level": "info",
         "message": message,
         "service": SERVICE_NAME,
@@ -30,8 +29,7 @@ def log_info(message, **fields):
 
 def log_error(message, **fields):
     record = {
-        "timestamp": datetime.datetime.utcnow().isoformat(timespec="milliseconds")
-        + "Z",
+        "timestamp": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
         "level": "error",
         "message": message,
         "service": SERVICE_NAME,
@@ -44,8 +42,7 @@ def log_error(message, **fields):
 def log_exception(message, **fields):
     fields["stack"] = traceback.format_exc()
     record = {
-        "timestamp": datetime.datetime.utcnow().isoformat(timespec="milliseconds")
-        + "Z",
+        "timestamp": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
         "level": "error",
         "message": message,
         "service": SERVICE_NAME,
