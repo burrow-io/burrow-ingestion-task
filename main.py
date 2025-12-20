@@ -385,7 +385,7 @@ def main_with_status():
             main()
             update_document_status("finished")
             log_info(
-                "Document marked as finished",
+                "Ingestion completed successfully",
                 document_id=DOCUMENT_ID,
             )
         except Exception:
@@ -417,4 +417,3 @@ if __name__ == "__main__":
         table_name=TABLE_NAME,
     )
     main_with_status()
-print("Completed")
