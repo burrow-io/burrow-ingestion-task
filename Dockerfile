@@ -10,6 +10,9 @@ WORKDIR /app
 
 RUN pip install --no-cache-dir uv
 
-COPY main.py logger.py .
+COPY main.py ./
+COPY utils/ ./utils/
+COPY services/ ./services/
+COPY events/ ./events/
 
 CMD ["uv", "run", "main.py"]
